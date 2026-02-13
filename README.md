@@ -1,34 +1,40 @@
 # AI-AMONG-US
 
-A polished **AI vs AI Among Us-style spectator simulator**.
+You can now run this project in **pure Python with animation** (no JavaScript runtime needed).
 
-## What was improved for your first test
-- Bigger Skeld-style room map with smoother movement between rooms.
-- Better pathfinding (AI heads to target rooms intelligently, not just random links).
-- Added adjustable sim speed slider for quick/slow spectating.
-- Settings persist in local storage (speed + API config) for easier repeated testing.
-- Vent network used by impostors for sneaky repositioning.
-- Real room-based task lists per crewmate with visible global progress.
-- Stronger memory and route history so bots remember where they have been all game.
-- Better sabotage pressure and task-vs-sabotage decision making.
-- Better meetings: statements, distrust/belief updates, alibi cross-checking, voting, ejections.
-- Added emergency meeting cooldown to prevent spammy instant chains.
-- Shared API key + per-bot override support for LLM-powered meeting dialogue.
+## Best mode for your first test (Python animated GUI)
+Run:
 
-## Controls
-- `Arrow Left / Arrow Right`: switch watched AI.
-- `Pause`: pause/resume simulation.
-- `Step`: advance one tick.
-- `Space`: pause/resume hotkey.
-- `N`: single-step hotkey.
-- `Restart`: start a fresh match.
-
-## LLM keys
-- Use one **Shared API Key** for all bots, or add per-bot overrides.
-- If no key is set for a bot, that bot uses local fallback strategy.
-
-## Run
 ```bash
-python3 -m http.server 8000
+python3 among_us_sim.py --gui
 ```
-Open `http://localhost:8000`.
+
+Optional:
+
+```bash
+python3 among_us_sim.py --gui --seed 42 --tick-ms 600
+```
+
+### GUI controls
+- `Left / Right`: switch watched AI.
+- `Space`: pause/resume.
+- `N`: single-step one tick.
+- Buttons: Pause/Resume, Step, Restart.
+- Slider: simulation speed (tick ms).
+
+## Python terminal mode (no GUI)
+If you just want quick simulation output:
+
+```bash
+python3 among_us_sim.py --seed 42 --rounds 300 --show-log
+```
+
+Options:
+- `--seed`: deterministic run.
+- `--rounds`: max rounds.
+- `--quiet`: hide per-round lines.
+- `--show-log`: print event log.
+
+## About the old JavaScript files
+`index.html`, `script.js`, and `styles.css` are from the original browser version.
+They are now optional legacy files; the new recommended first-test path is `python3 among_us_sim.py --gui`.

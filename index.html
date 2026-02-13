@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Among Us Simulator - Skeld Style</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="layout">
+    <section class="board panel">
+      <h1>Among Us AI Simulator</h1>
+      <p class="sub">Skeld-style match • 10 AI players • Arrow keys switch spectator</p>
+      <canvas id="gameCanvas" width="1200" height="700"></canvas>
+      <div class="controls">
+        <button id="pauseBtn">Pause</button>
+        <button id="stepBtn">Step</button>
+        <button id="restartBtn">Restart</button>
+        <label class="speed-control">Speed
+          <input id="speedInput" type="range" min="250" max="1400" step="50" value="800" />
+          <span id="speedLabel">800ms</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel sidebar">
+      <h2>Match Status</h2>
+      <p id="phaseLine"></p>
+      <p id="roundLine"></p>
+      <p id="aliveLine"></p>
+      <p id="taskLine"></p>
+      <p id="sabotageLine"></p>
+
+      <h3>Spectating</h3>
+      <p id="watchLine"></p>
+      <ul id="watchFacts"></ul>
+      <h4>Recent route</h4>
+      <ul id="watchRoute"></ul>
+
+      <h3>Players</h3>
+      <ul id="playerList"></ul>
+
+      <h3>Event Log</h3>
+      <ul id="logList"></ul>
+    </section>
+
+    <section class="panel api-panel">
+      <h2>Bot LLM Settings</h2>
+      <p class="hint">Use one shared key for all bots, or override specific bots.</p>
+      <label class="field">Shared API Key
+        <input id="sharedApiKeyInput" type="password" placeholder="sk-..." />
+      </label>
+      <label class="field">API Base URL
+        <input id="apiBaseInput" type="text" value="https://api.openai.com/v1/chat/completions" />
+      </label>
+      <label class="field">Model
+        <input id="apiModelInput" type="text" value="gpt-4.1-mini" />
+      </label>
+      <div id="botKeyGrid" class="bot-key-grid"></div>
+      <button id="saveApiBtn">Save Bot API Settings</button>
+      <p id="apiStatusLine"></p>
+    </section>
+
+    <section class="panel hidden" id="meetingPanel">
+      <h2>Meeting In Progress</h2>
+      <p id="meetingReason"></p>
+      <p id="meetingTimer"></p>
+      <p id="meetingVotes"></p>
+      <ul id="meetingTalk"></ul>
+    </section>
+
+    <section class="panel hidden end" id="endPanel">
+      <h2 id="endTitle"></h2>
+      <p id="endReason"></p>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

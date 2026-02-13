@@ -58,6 +58,7 @@ let state;
 let paused = false;
 let tickMs = 800;
 let tickTimer;
+let animationFrame;
 
 const llmConfig = { baseUrl: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4.1-mini', sharedKey: '', keysByBot: {} };
 
@@ -70,6 +71,99 @@ function restartTickLoop() {
   tickTimer = setInterval(tick, tickMs);
 }
 
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2;
+}
+
+function buildRoomSlots() {
+  const slots = {};
+  roomIds.forEach((id) => { slots[id] = []; });
+
+  state.players
+    .slice()
+    .sort((a, b) => Number(b.alive) - Number(a.alive) || a.id - b.id)
+    .forEach((p) => slots[p.room].push(p));
+
+  return slots;
+}
+
+function computePlayerTargets() {
+  const slots = buildRoomSlots();
+  const targets = new Map();
+
+  roomIds.forEach((roomId) => {
+    const room = roomById[roomId];
+    const players = slots[roomId];
+    players.forEach((p, idx) => {
+      targets.set(p.id, {
+        x: room.x + 30 + (idx % 5) * 30,
+        y: room.y + 40 + Math.floor(idx / 5) * 48
+      });
+    });
+  });
+
+  return targets;
+}
+
+function syncPlayerAnimationTargets(initial = false) {
+  const targets = computePlayerTargets();
+  const now = performance.now();
+  const duration = Math.max(220, tickMs * 0.86);
+
+  state.players.forEach((p) => {
+    const target = targets.get(p.id);
+    if (!target) return;
+
+    if (!p.renderPos || initial) {
+      p.renderPos = {
+        x: target.x,
+        y: target.y,
+        fromX: target.x,
+        fromY: target.y,
+        toX: target.x,
+        toY: target.y,
+        start: now,
+        duration
+      };
+      return;
+    }
+
+    p.renderPos = {
+      x: p.renderPos.x,
+      y: p.renderPos.y,
+      fromX: p.renderPos.x,
+      fromY: p.renderPos.y,
+      toX: target.x,
+      toY: target.y,
+      start: now,
+      duration
+    };
+  });
+}
+
+function updateAnimatedPositions(now) {
+  if (!state) return;
+  state.players.forEach((p) => {
+    if (!p.renderPos) return;
+    const progress = Math.min(1, (now - p.renderPos.start) / p.renderPos.duration);
+    const eased = easeInOut(progress);
+    p.renderPos.x = p.renderPos.fromX + (p.renderPos.toX - p.renderPos.fromX) * eased;
+    p.renderPos.y = p.renderPos.fromY + (p.renderPos.toY - p.renderPos.fromY) * eased;
+  });
+}
+
+function animationLoop(now) {
+  if (!state) return;
+  updateAnimatedPositions(now);
+  drawBoard(now);
+  animationFrame = requestAnimationFrame(animationLoop);
+}
+
+function restartAnimationLoop() {
+  if (animationFrame) cancelAnimationFrame(animationFrame);
+  animationFrame = requestAnimationFrame(animationLoop);
+}
+
 function getRoundRoom(player, round) {
   if (!player.positionLog || !player.positionLog.length) return player.room;
   let last = player.positionLog[0];
@@ -78,6 +172,11 @@ function getRoundRoom(player, round) {
     else break;
   }
   return last ? last.room : player.room;
+}
+
+function nextTaskRoom(player) {
+  const next = player.tasks.find((t) => !t.done);
+  return next ? next.room : null;
 }
 
 function shortestPath(start, goal) {
@@ -271,6 +370,8 @@ function setup() {
     addMemory(p, 'Round start.');
     recordRoomVisit(p);
   });
+
+  syncPlayerAnimationTargets(true);
 
   paused = false;
   els.endPanel.classList.add('hidden');
@@ -637,6 +738,7 @@ function tick() {
   }
 
   checkWin();
+  syncPlayerAnimationTargets();
   render();
 }
 
@@ -674,8 +776,53 @@ function drawBean(x, y, color, dead = false, highlight = false) {
   ctx.restore();
 }
 
-function drawBoard() {
+function drawBoard(now = performance.now()) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Corridor lines for stronger map readability.
+  roomDefs.forEach((r) => {
+    r.links.forEach((toId) => {
+      if (r.id > toId) return;
+      const to = roomById[toId];
+      ctx.strokeStyle = 'rgba(114, 220, 255, 0.15)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(r.x + r.w / 2, r.y + r.h / 2);
+      ctx.lineTo(to.x + to.w / 2, to.y + to.h / 2);
+      ctx.stroke();
+    });
+  });
+
+  // Spectator guidance: show the watched bot's likely path.
+  const watched = state.players[state.watchIndex];
+  if (watched && watched.alive) {
+    let path = null;
+    if (!watched.impostor) {
+      const room = nextTaskRoom(watched);
+      if (room) path = shortestPath(watched.room, room);
+    } else {
+      const nearbyCrew = aliveCrew().slice().sort((a, b) => {
+        return shortestPath(watched.room, a.room).length - shortestPath(watched.room, b.room).length;
+      })[0];
+      if (nearbyCrew) path = shortestPath(watched.room, nearbyCrew.room);
+    }
+
+    if (path && path.length > 1) {
+      ctx.save();
+      ctx.setLineDash([8, 8]);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = watched.impostor ? 'rgba(255, 126, 126, 0.6)' : 'rgba(114, 220, 255, 0.6)';
+      ctx.beginPath();
+      const firstRoom = roomById[path[0]];
+      ctx.moveTo(firstRoom.x + firstRoom.w / 2, firstRoom.y + firstRoom.h / 2);
+      path.slice(1).forEach((rid) => {
+        const r = roomById[rid];
+        ctx.lineTo(r.x + r.w / 2, r.y + r.h / 2);
+      });
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 
   roomDefs.forEach((r) => {
     ctx.fillStyle = '#17264a';
@@ -691,6 +838,12 @@ function drawBoard() {
       ctx.fillStyle = '#ff9f43';
       ctx.fillRect(r.x + r.w - 20, r.y + r.h - 16, 10, 8);
     }
+
+    if (state.sabotage && state.sabotage.fixRooms.includes(r.id)) {
+      const pulse = (Math.sin(now / 160) + 1) / 2;
+      ctx.fillStyle = `rgba(255, 126, 126, ${0.14 + pulse * 0.2})`;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+    }
   });
 
   state.bodies.forEach((b) => {
@@ -700,21 +853,18 @@ function drawBoard() {
   });
 
   state.players.forEach((p) => {
-    const room = roomById[p.room];
-    const livingInRoom = state.players.filter((x) => x.room === p.room && x.alive);
-    const idx = livingInRoom.findIndex((x) => x.id === p.id);
-    const x = room.x + 30 + (idx % 5) * 30;
-    const y = room.y + 40 + Math.floor(idx / 5) * 48;
-    drawBean(x, y, p.color, !p.alive, p.id === state.watchIndex);
+    const x = p.renderPos?.x ?? (roomById[p.room].x + 30);
+    const y = p.renderPos?.y ?? (roomById[p.room].y + 40);
+    const bob = p.alive ? Math.sin((now / 160) + p.id) * 1.5 : 0;
+    drawBean(x, y + bob, p.color, !p.alive, p.id === state.watchIndex);
 
     ctx.fillStyle = '#f7fbff';
     ctx.font = '11px sans-serif';
-    ctx.fillText(p.name, x - 16, y + 34);
+    ctx.fillText(p.name, x - 16, y + 34 + bob);
   });
 }
 
 function render() {
-  drawBoard();
   const watch = state.players[state.watchIndex];
 
   const totalTasks = crewTotalTasks();
@@ -735,6 +885,7 @@ function render() {
     `Role: ${watch.impostor ? 'Impostor' : 'Crewmate'} (spectator debug)`,
     `Current room: ${roomById[watch.room].name}`,
     `Personality: ${watch.personality}`,
+    `Goal: ${watch.impostor ? 'Hunt / fake pathing' : (nextTaskRoom(watch) ? roomById[nextTaskRoom(watch)].name : 'All tasks done')}`,
     `Tasks done: ${watch.tasks.filter((t) => t.done).length}/${watch.tasks.length}`,
     `Kill cooldown: ${watch.killCooldown}`,
     `Top suspect: ${topSuspect}`
@@ -840,3 +991,4 @@ loadUiSettings();
 saveApiConfigFromUI();
 setup();
 restartTickLoop();
+restartAnimationLoop();

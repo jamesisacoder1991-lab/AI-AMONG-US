@@ -2,33 +2,55 @@
 
 A polished **AI vs AI Among Us-style spectator simulator**.
 
-## What was improved for your first test
-- Bigger Skeld-style room map with smoother movement between rooms.
-- Better pathfinding (AI heads to target rooms intelligently, not just random links).
-- Added adjustable sim speed slider for quick/slow spectating.
-- Settings persist in local storage (speed + API config) for easier repeated testing.
-- Vent network used by impostors for sneaky repositioning.
-- Real room-based task lists per crewmate with visible global progress.
-- Stronger memory and route history so bots remember where they have been all game.
-- Better sabotage pressure and task-vs-sabotage decision making.
-- Better meetings: statements, distrust/belief updates, alibi cross-checking, voting, ejections.
-- Added emergency meeting cooldown to prevent spammy instant chains.
-- Shared API key + per-bot override support for LLM-powered meeting dialogue.
+This project now has **two ways to run**:
+- **Browser spectator mode** (original): visual map + animations + controls.
+- **Python CLI mode** (new): terminal simulation for quick reproducible runs.
 
-## Controls
-- `Arrow Left / Arrow Right`: switch watched AI.
-- `Pause`: pause/resume simulation.
-- `Step`: advance one tick.
-- `Space`: pause/resume hotkey.
-- `N`: single-step hotkey.
-- `Restart`: start a fresh match.
+## Why JavaScript files still exist
+The files `index.html`, `styles.css`, and `script.js` are the **web spectator game**.
 
-## LLM keys
-- Use one **Shared API Key** for all bots, or add per-bot overrides.
-- If no key is set for a bot, that bot uses local fallback strategy.
+So yes, JavaScript is still here on purpose:
+- `script.js` runs the full browser simulation loop and animations.
+- `index.html` is the UI shell.
+- `styles.css` is the visual styling.
 
-## Run
+The Python file (`among_us_sim.py`) is an **additional** mode, not a replacement for the browser experience.
+
+## First test (recommended)
+If you want the best first experience, use the browser mode:
+
 ```bash
 python3 -m http.server 8000
 ```
-Open `http://localhost:8000`.
+
+Then open:
+
+- `http://localhost:8000`
+
+### Controls while watching
+- `Arrow Left / Arrow Right`: switch watched AI.
+- `Space`: pause/resume.
+- `N`: single-step one tick.
+- `Pause` button: pause/resume.
+- `Step` button: one tick.
+- `Restart` button: fresh match.
+- `Speed` slider: simulation tick speed.
+
+## Python CLI mode (optional)
+Run the terminal simulation:
+
+```bash
+python3 among_us_sim.py
+```
+
+Example deterministic run:
+
+```bash
+python3 among_us_sim.py --seed 42 --rounds 300 --show-log
+```
+
+Options:
+- `--seed`: deterministic run for reproducible matches.
+- `--rounds`: max simulation rounds.
+- `--quiet`: hide per-round summary lines.
+- `--show-log`: print event log after match end.
